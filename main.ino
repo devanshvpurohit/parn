@@ -8,48 +8,44 @@
 
 DHT dht(DHTPIN, DHTTYPE);
 
-const char* ssid = "YOUR_WIFI_NAME";
-const char* password = "YOUR_WIFI_PASSWORD";
-const char* serverURL = "http://YOUR_PC_IP:5000/data";
+// AP credentials
+const char* ssid = "ESP32_AQI";
+const char* password = "12345678";
+
+// PC IP (connected to ESP32 AP)
+const char* serverURL = "http://192.168.4.2:8501/data";
 
 void setup() {
   Serial.begin(115200);
   dht.begin();
 
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nWiFi connected");
+  WiFi.softAP(ssid, password);
+  Serial.println("ESP32 AP started");
+  Serial.println(WiFi.softAPIP());
 }
 
 void loop() {
-  float temperature = dht.readTemperature();
-  float humidity = dht.readHumidity();
-  int mq135_raw = analogRead(MQ135_PIN);
+  float temp = dht.readTemperature();
+  float hum = dht.readHumidity();
+  int mq135 = analogRead(MQ135_PIN);
 
-  if (isnan(temperature) || isnan(humidity)) {
-    Serial.println("DHT error");
-    return;
-  }
+  if (isnan(temp) || isnan(hum)) return;
 
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    http.begin(serverURL);
-    http.addHeader("Content-Type", "application/json");
+  HTTPClient http;
+  http.begin(serverURL);
+  http.addHeader("Content-Type", "application/json");
 
-    String json = "{";
-    json += "\"temperature\":" + String(temperature) + ",";
-    json += "\"humidity\":" + String(humidity) + ",";
-    json += "\"mq135\":" + String(mq135_raw);
-    json += "}";
+  String payload = "{";
+  payload += "\"temperature\":" + String(temp) + ",";
+  payload += "\"humidity\":" + String(hum) + ",";
+  payload += "\"mq135\":" + String(mq135);
+  payload += "}";
 
-    int httpResponseCode = http.POST(json);
-    http.end();
+  int code = http.POST(payload);
+  http.end();
 
-    Serial.println(json);
-  }
+  Serial.println(payload);
+  Serial.println("HTTP code: " + String(code));
 
   delay(5000);
 }
